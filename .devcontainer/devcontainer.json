@@ -1,0 +1,61 @@
+{
+  "name": "StreetRace🚗💨 Development Environment",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "target": "development"
+  },
+  "workspaceFolder": "/workspace",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/.bash_history,target=/home/devuser/.bash_history,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/.bashrc,target=/home/devuser/.bashrc,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/.bash_aliases,target=/home/devuser/.bash_aliases,type=bind,consistency=cached"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.mypy-type-checker",
+        "charliermarsh.ruff",
+        "ms-vscode.vscode-json",
+        "tamasfe.even-better-toml",
+        "DavidAnson.vscode-markdownlint"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/workspace/.venv/bin/python",
+        "python.terminal.activateEnvironment": false,
+        "python.analysis.typeCheckingMode": "strict",
+        "python.analysis.autoSearchPaths": true,
+        "[python]": {
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "always"
+          },
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        "files.exclude": {
+          "**/__pycache__": true,
+          "**/.pytest_cache": true,
+          "**/.mypy_cache": true,
+          "**/.ruff_cache": true,
+          "**/.coverage": true,
+          "**/htmlcov": true,
+          "**/.venv": true
+        },
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "git.autofetch": true,
+        "git.enableSmartCommit": true,
+        "editor.rulers": [88],
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true,
+        "makefile.configureOnOpen": true
+      }
+    }
+  },
+  "postCreateCommand": "poetry install && echo '✅ Development environment ready! Run `make check` to verify everything works.'",
+  "forwardPorts": [],
+  "remoteUser": "devuser",
+  "containerUser": "devuser",
+  "updateRemoteUserUID": true
+}
