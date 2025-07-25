@@ -1,13 +1,20 @@
 """Parse and organize app args."""
 
-from collections.abc import Callable
+from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typed_argparse as tap
 from tzlocal import get_localzone
 
 from streetrace.utils.uid import get_user_identity
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from streetrace.commands.subcommands import SubcommandRegistry
 
 _START_TIME = datetime.now(tz=get_localzone())
 
@@ -22,11 +29,16 @@ class Args(tap.TypedArgs):
             "Required if running a prompt."
         ),
     )
+    command: str | None = tap.arg(
+        positional=True,
+        nargs="?",
+        help="Command to run (configure) or prompt text",
+    )
     prompt: str | None = tap.arg(help="Non-interactive prompt mode", default=None)
-    arbitrary_prompt: list[str] | None = tap.arg(
+    arbitrary_prompt: list[str] = tap.arg(
         positional=True,
         nargs="*",
-        help="Prompt to use",
+        help="Additional prompt arguments",
         default=[],
     )
     verbose: bool = tap.arg(help="Enables verbose (DEBUG) logging", default=False)
@@ -38,6 +50,32 @@ class Args(tap.TypedArgs):
     session_id: str | None = tap.arg(help="Session ID to use (or create)", default=None)
     list_sessions: bool = tap.arg(help="List available sessions", default=False)
     version: bool = tap.arg(help="Show version and exit", default=False)
+
+    def is_subcommand_invocation(
+        self,
+        registry: SubcommandRegistry | None = None,
+    ) -> bool:
+        """Check if this is a subcommand invocation.
+
+        Args:
+            registry: Optional subcommand registry to use for checking.
+
+        Returns:
+            True if the command is a registered subcommand, False otherwise.
+
+        """
+        if not self.command:
+            return False
+
+        if registry is None:
+            # Import here to avoid circular imports
+            from streetrace.commands.subcommands import (  # noqa: PLC0415
+                SubcommandRegistry,
+            )
+
+            registry = SubcommandRegistry.instance()
+
+        return self.command in registry.list_subcommands()
 
     @property
     def non_interactive_prompt(self) -> tuple[str | None, bool]:
@@ -55,6 +93,12 @@ class Args(tap.TypedArgs):
         """
         if self.prompt:
             return self.prompt, False
+        if self.command and not self.is_subcommand_invocation():
+            # First positional arg is treated as prompt if not a subcommand
+            prompt_parts = [self.command]
+            if self.arbitrary_prompt:
+                prompt_parts.extend(self.arbitrary_prompt)
+            return " ".join(prompt_parts), True
         if self.arbitrary_prompt:
             return " ".join(self.arbitrary_prompt), True
         return None, False
