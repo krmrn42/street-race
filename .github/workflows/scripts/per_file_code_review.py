@@ -87,6 +87,7 @@ class FileReviewer:
     def review_file(self, file_path: str, old_content: str | None, new_content: str, reviews_dir: Path, timestamp: str, file_index: int) -> dict:
         """Review a single file and return the review JSON."""
         start_time = time.time()
+        review_duration = 0  # Initialize to prevent unbound variable
 
         language = self.get_file_language(file_path)
         changes_summary = self.generate_changes_summary(old_content, new_content)
