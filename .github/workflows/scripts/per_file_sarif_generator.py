@@ -5,15 +5,14 @@ This module generates SARIF (Static Analysis Results Interchange Format) files
 from aggregated per-file review data for GitHub integration.
 """
 
+import hashlib
 import json
 import sys
-import hashlib
-from pathlib import Path
-from typing import Dict, List, Any
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List
 
-from utils import print_status, print_success, print_error
-
+from utils import print_error, print_status, print_success
 
 # Constants
 TITLE_HASH_LENGTH = 8

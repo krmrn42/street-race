@@ -12,7 +12,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from utils import print_status, print_success, print_error, print_warning
+from utils import print_error, print_status, print_success, print_warning
 
 
 class CodeReviewRunner:

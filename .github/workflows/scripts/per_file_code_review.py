@@ -16,8 +16,12 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from utils import (
-    print_status, print_success, print_error, print_warning,
-    LANGUAGE_MAP, JSON_CLEANUP_PATTERNS
+    JSON_CLEANUP_PATTERNS,
+    LANGUAGE_MAP,
+    print_error,
+    print_status,
+    print_success,
+    print_warning,
 )
 
 
