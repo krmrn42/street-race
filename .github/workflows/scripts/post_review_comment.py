@@ -8,7 +8,10 @@ with support for updating existing comments and truncating long content.
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+
+from utils import print_error, print_status, print_success, print_warning
 
 
 class GitHubCommentPoster:
@@ -44,11 +47,7 @@ class GitHubCommentPoster:
             missing_vars.append("GITHUB_REPOSITORY")
 
         if missing_vars:
-            print(
-                f"Error: Missing required environment variables: {', '.join(missing_vars)}",
-                file=sys.stderr,
-            )
-            print(file=sys.stderr)
+            print_error(f"Missing required environment variables: {', '.join(missing_vars)}")
             self.show_usage()
             sys.exit(1)
 
@@ -56,11 +55,8 @@ class GitHubCommentPoster:
         try:
             subprocess.run(["gh", "--version"], check=True, capture_output=True)
         except (subprocess.CalledProcessError, FileNotFoundError):
-            print(
-                "Error: GitHub CLI (gh) is not installed or not in PATH",
-                file=sys.stderr,
-            )
-            print("Please install GitHub CLI: https://cli.github.com/", file=sys.stderr)
+            print_error("GitHub CLI (gh) is not installed or not in PATH")
+            print_status("Please install GitHub CLI: https://cli.github.com/")
             sys.exit(1)
 
     def validate_review_file(self, review_file: str) -> bool:
@@ -68,24 +64,21 @@ class GitHubCommentPoster:
         file_path = Path(review_file)
 
         if not file_path.exists():
-            print(f"Error: Review file '{review_file}' does not exist", file=sys.stderr)
+            print_error(f"Review file '{review_file}' does not exist")
             sys.exit(1)
 
         if not file_path.is_file():
-            print(f"Error: '{review_file}' is not a file", file=sys.stderr)
+            print_error(f"'{review_file}' is not a file")
             sys.exit(1)
 
         try:
             file_path.read_text(encoding="utf-8")
         except (PermissionError, UnicodeDecodeError) as e:
-            print(
-                f"Error: Review file '{review_file}' is not readable: {e}",
-                file=sys.stderr,
-            )
+            print_error(f"Review file '{review_file}' is not readable: {e}")
             sys.exit(1)
 
         if file_path.stat().st_size == 0:
-            print(f"Warning: Review file '{review_file}' is empty", file=sys.stderr)
+            print_warning(f"Review file '{review_file}' is empty")
             return False
 
         return True
@@ -120,11 +113,8 @@ class GitHubCommentPoster:
 
         # Check comment length and truncate if necessary
         if len(comment_body) > self.max_comment_length:
-            print(
-                f"Warning: Comment length ({len(comment_body)} chars) exceeds GitHub limit ({self.max_comment_length} chars)",
-                file=sys.stderr,
-            )
-            print("Truncating comment...", file=sys.stderr)
+            print_warning(f"Comment length ({len(comment_body)} chars) exceeds GitHub limit ({self.max_comment_length} chars)")
+            print_status("Truncating comment...")
 
             # Preserve footer
             footer = (
@@ -173,16 +163,10 @@ class GitHubCommentPoster:
                 check=True,
             )
 
-            print(
-                f"Successfully posted AI review comment to PR #{self.pr_number}",
-                file=sys.stderr,
-            )
+            print_success(f"Successfully posted AI review comment to PR #{self.pr_number}")
 
         except subprocess.CalledProcessError:
-            print(
-                f"Error: Failed to post comment to PR #{self.pr_number}",
-                file=sys.stderr,
-            )
+            print_error(f"Failed to post comment to PR #{self.pr_number}")
             sys.exit(1)
 
     def update_existing_comment(self, comment_id: str, comment_body: str) -> bool:
@@ -204,17 +188,11 @@ class GitHubCommentPoster:
                 capture_output=True,
             )
 
-            print(
-                f"Successfully updated AI review comment (ID: {comment_id})",
-                file=sys.stderr,
-            )
+            print_success(f"Successfully updated AI review comment (ID: {comment_id})")
             return True
 
         except subprocess.CalledProcessError:
-            print(
-                "Error: Failed to update existing comment. Creating new comment...",
-                file=sys.stderr,
-            )
+            print_warning("Failed to update existing comment. Creating new comment...")
             return False
 
     def post_comment(self, comment_body: str) -> None:
@@ -223,20 +201,17 @@ class GitHubCommentPoster:
         existing_comment_id = self.find_existing_comment()
 
         if existing_comment_id:
-            print(
-                f"Updating existing AI review comment (ID: {existing_comment_id})...",
-                file=sys.stderr,
-            )
+            print_status(f"Updating existing AI review comment (ID: {existing_comment_id})...")
             if not self.update_existing_comment(existing_comment_id, comment_body):
                 # Fall back to creating new comment
                 self.create_new_comment(comment_body)
         else:
-            print("Creating new AI review comment...", file=sys.stderr)
+            print_status("Creating new AI review comment...")
             self.create_new_comment(comment_body)
 
     def authenticate_github(self) -> None:
         """Authenticate with GitHub CLI."""
-        print("Authenticating with GitHub...", file=sys.stderr)
+        print_status("Authenticating with GitHub...")
 
         try:
             # Check if already authenticated
@@ -257,9 +232,7 @@ class GitHubCommentPoster:
 
         # Handle empty review file
         if not self.validate_review_file(review_file):
-            print("Creating placeholder comment for empty review...", file=sys.stderr)
-            import tempfile
-
+            print_status("Creating placeholder comment for empty review...")
             with tempfile.NamedTemporaryFile(
                 mode="w", delete=False, suffix=".txt",
             ) as f:
@@ -272,10 +245,10 @@ class GitHubCommentPoster:
         # Format and post the comment
         comment_body = self.format_review_comment(review_file)
 
-        print(f"Posting review comment to PR #{self.pr_number}...", file=sys.stderr)
+        print_status(f"Posting review comment to PR #{self.pr_number}...")
         self.post_comment(comment_body)
 
-        print("AI code review comment posted successfully!", file=sys.stderr)
+        print_success("AI code review comment posted successfully!")
 
     @staticmethod
     def show_usage() -> None:
@@ -308,8 +281,7 @@ Examples:
 def main() -> None:
     """Main entry point."""
     if len(sys.argv) != 2:
-        print("Error: Exactly one argument (review file) is required", file=sys.stderr)
-        print(file=sys.stderr)
+        print_error("Exactly one argument (review file) is required")
         GitHubCommentPoster.show_usage()
         sys.exit(1)
 
