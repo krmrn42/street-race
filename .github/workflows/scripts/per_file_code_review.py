@@ -501,10 +501,16 @@ class PerFileCodeReviewer:
         # Prioritize files
         files = self.prioritize_files(files)
         
-        # Increased limit for better testing - will be removed later
-        if len(files) > 5:
-            print_status(f"File limit: Limiting review to 5 files (found {len(files)} total)")
-            files = files[:5]
+        # Apply file limit if configured
+        file_limit = os.getenv("STREETRACE_FILE_LIMIT")
+        if file_limit is not None:
+            try:
+                limit = int(file_limit)
+                if len(files) > limit:
+                    print_status(f"File limit: Limiting review to {limit} files (found {len(files)} total)")
+                    files = files[:limit]
+            except ValueError:
+                print_warning(f"Invalid STREETRACE_FILE_LIMIT value: {file_limit}. Ignoring limit.")
         
         # Review each file individually
         review_files = self.review_files(files, reviews_dir, timestamp)
@@ -537,8 +543,9 @@ Arguments:
 
 Environment Variables:
   STREETRACE_MODEL      Model to use (default: openai/gpt-4o)
-  OPENAI_API_KEY       OpenAI API key
-  ANTHROPIC_API_KEY    Anthropic API key
+  STREETRACE_FILE_LIMIT Maximum files to review (default: unlimited)
+  OPENAI_API_KEY        OpenAI API key
+  ANTHROPIC_API_KEY     Anthropic API key
 
 This script implements the per-file review architecture:
 1. Each file is reviewed individually with full context

@@ -57,6 +57,7 @@ jobs:
           BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
           STREETRACE_MODEL: "openai/gpt-4o"
+          STREETRACE_FILE_LIMIT: "5"
         run: |
           # Run the per-file AI code review system
           # 
