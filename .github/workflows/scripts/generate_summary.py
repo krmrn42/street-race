@@ -10,11 +10,11 @@ def generate_summary(json_file: str) -> None:
     try:
         with open(json_file) as f:
             data = json.load(f)
-        
+
         # Print summary
         print("## 📊 AI Code Review Summary")
-        print("")
-        
+        print()
+
         # Check if this is a structured diff file instead of review file
         if "base_ref" in data and "files" in data:
             print("⚠️ This appears to be structured diff data, not review results")
@@ -26,26 +26,26 @@ def generate_summary(json_file: str) -> None:
                 reviewed_files = summary.get("files_reviewed", 0)
                 print(f"📊 PR has {total_files} files changed, {reviewed_files} were reviewed")
             return
-            
+
         summary = data.get("summary", "No summary available")
         print(summary)
-        print("")
-        
+        print()
+
         # Print statistics
         stats = data.get("statistics", {})
         if stats:
             print("### Statistics")
             print(f"- Files changed: {stats.get('files_changed', 0)}")
             print(f"- Total issues: {stats.get('total_issues', 0)}")
-            
+
             if stats.get("errors", 0) > 0:
                 print(f"  - 🚨 Errors: {stats.get('errors', 0)}")
             if stats.get("warnings", 0) > 0:
                 print(f"  - ⚠️ Warnings: {stats.get('warnings', 0)}")
             if stats.get("notices", 0) > 0:
                 print(f"  - ℹ️ Notices: {stats.get('notices', 0)}")
-            print("")
-            
+            print()
+
     except FileNotFoundError:
         print("❌ Review file not found")
     except json.JSONDecodeError:
@@ -58,5 +58,5 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python3 generate_summary.py <review_json_file>")
         sys.exit(1)
-    
+
     generate_summary(sys.argv[1])

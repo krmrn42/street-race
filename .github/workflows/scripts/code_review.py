@@ -83,7 +83,7 @@ class CodeReviewRunner:
         if not os.getenv("OPENAI_API_KEY"):
             print_error("No OpenAI API key found. Set OPENAI_API_KEY")
             print_status(
-                "You can create a .env file in the project root with: OPENAI_API_KEY=your_key_here"
+                "You can create a .env file in the project root with: OPENAI_API_KEY=your_key_here",
             )
             sys.exit(1)
 
@@ -151,50 +151,50 @@ class CodeReviewRunner:
     def run_per_file_review(self, timestamp: str) -> None:
         """Run the per-file review strategy."""
         print_status("🔄 Running per-file AI code review...")
-        
+
         try:
             # Run per-file review
             subprocess.run(
                 ["python3", str(self.scripts_dir / "per_file_code_review.py"), "main"],
                 cwd=self.project_root,
                 check=True,
-                env={**os.environ, "STREETRACE_MODEL": self.model}
+                env={**os.environ, "STREETRACE_MODEL": self.model},
             )
-            
+
             print_success("Per-file review completed!")
-            
+
             # Find the generated per-file review using more efficient approach
             reviews_dir = self.project_root / "code-reviews"
             per_file_json = next(reviews_dir.glob(f"{timestamp}_per_file_structured.json"), None)
-            
+
             if not per_file_json or not per_file_json.exists():
                 print_error("Per-file review output not found")
                 sys.exit(1)
-                
+
             print_success(f"Per-file review saved: {per_file_json.name}")
-            
+
             # Generate SARIF from per-file review
             sarif_path = reviews_dir / f"{timestamp}_per_file_sarif.json"
-            
+
             try:
                 subprocess.run(
-                    ["python3", str(self.scripts_dir / "per_file_sarif_generator.py"), 
+                    ["python3", str(self.scripts_dir / "per_file_sarif_generator.py"),
                      str(per_file_json), str(sarif_path)],
                     check=True,
-                    cwd=self.project_root
+                    cwd=self.project_root,
                 )
-                
+
                 if sarif_path.exists():
                     print_success(f"SARIF file generated: {sarif_path.name}")
                     self._set_github_env_vars(per_file_json, sarif_path)
-                
+
             except subprocess.CalledProcessError as e:
                 print_warning(f"SARIF generation failed: {e}")
-                
+
         except subprocess.CalledProcessError as e:
             print_error(f"Per-file review failed: {e}")
             sys.exit(1)
-    
+
     def _set_github_env_vars(self, json_file: Path, sarif_file: Path) -> None:
         """Set GitHub Actions environment variables."""
         github_env = os.getenv("GITHUB_ENV")
