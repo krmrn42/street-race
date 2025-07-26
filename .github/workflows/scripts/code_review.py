@@ -12,34 +12,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-
-class Colors:
-    """ANSI color codes for terminal output."""
-    RED = "\033[0;31m"
-    GREEN = "\033[0;32m"
-    YELLOW = "\033[1;33m"
-    BLUE = "\033[0;34m"
-    NC = "\033[0m"
-
-
-def print_status(message: str) -> None:
-    """Print status message in blue."""
-    print(f"{Colors.BLUE}[INFO]{Colors.NC} {message}")
-
-
-def print_success(message: str) -> None:
-    """Print success message in green."""
-    print(f"{Colors.GREEN}[SUCCESS]{Colors.NC} {message}")
-
-
-def print_error(message: str) -> None:
-    """Print error message in red."""
-    print(f"{Colors.RED}[ERROR]{Colors.NC} {message}")
-
-
-def print_warning(message: str) -> None:
-    """Print warning message in yellow."""
-    print(f"{Colors.YELLOW}[WARNING]{Colors.NC} {message}")
+from utils import print_status, print_success, print_error, print_warning
 
 
 class CodeReviewRunner:

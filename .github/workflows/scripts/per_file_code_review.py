@@ -10,40 +10,15 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-
-class Colors:
-    """ANSI color codes for terminal output."""
-    RED = "\033[0;31m"
-    GREEN = "\033[0;32m"
-    YELLOW = "\033[1;33m"
-    BLUE = "\033[0;34m"
-    NC = "\033[0m"  # No Color
-
-
-def print_status(message: str) -> None:
-    """Print status message in blue."""
-    print(f"{Colors.BLUE}[INFO]{Colors.NC} {message}")
-
-
-def print_success(message: str) -> None:
-    """Print success message in green."""
-    print(f"{Colors.GREEN}[SUCCESS]{Colors.NC} {message}")
-
-
-def print_error(message: str) -> None:
-    """Print error message in red."""
-    print(f"{Colors.RED}[ERROR]{Colors.NC} {message}")
-
-
-def print_warning(message: str) -> None:
-    """Print warning message in yellow."""
-    print(f"{Colors.YELLOW}[WARNING]{Colors.NC} {message}")
+from utils import (
+    print_status, print_success, print_error, print_warning,
+    LANGUAGE_MAP, JSON_CLEANUP_PATTERNS
+)
 
 
 class FileReviewer:
@@ -84,36 +59,7 @@ class FileReviewer:
     def get_file_language(self, file_path: str) -> str:
         """Determine the programming language from file extension."""
         ext = Path(file_path).suffix.lower()
-        language_map = {
-            '.py': 'python',
-            '.js': 'javascript',
-            '.ts': 'typescript',
-            '.tsx': 'typescript',
-            '.jsx': 'javascript',
-            '.java': 'java',
-            '.cpp': 'cpp',
-            '.c': 'c',
-            '.h': 'c',
-            '.hpp': 'cpp',
-            '.cs': 'csharp',
-            '.rb': 'ruby',
-            '.go': 'go',
-            '.rs': 'rust',
-            '.php': 'php',
-            '.sh': 'bash',
-            '.bash': 'bash',
-            '.yml': 'yaml',
-            '.yaml': 'yaml',
-            '.json': 'json',
-            '.xml': 'xml',
-            '.html': 'html',
-            '.css': 'css',
-            '.scss': 'scss',
-            '.sql': 'sql',
-            '.md': 'markdown',
-            '.dockerfile': 'dockerfile'
-        }
-        return language_map.get(ext, 'text')
+        return LANGUAGE_MAP.get(ext, 'text')
 
     def generate_changes_summary(self, old_content: Optional[str], new_content: str) -> str:
         """Generate a summary of what changed in the file."""
@@ -134,10 +80,7 @@ class FileReviewer:
     def add_line_numbers(self, content: str) -> str:
         """Add line numbers to content for accurate AI review."""
         lines = content.splitlines()
-        numbered_lines = []
-        for i, line in enumerate(lines, 1):
-            numbered_lines.append(f"{i:3d}: {line}")
-        return "\n".join(numbered_lines)
+        return "\n".join(f"{i:3d}: {line}" for i, line in enumerate(lines, 1))
 
     def review_file(self, file_path: str, old_content: Optional[str], new_content: str, reviews_dir: Path, timestamp: str, file_index: int) -> Dict:
         """Review a single file and return the review JSON."""
@@ -169,12 +112,7 @@ class FileReviewer:
         
         try:
             # Clean up any existing JSON files before review to avoid conflicts
-            cleanup_patterns = [
-                "review_output.json", "code-review-feedback.json", 
-                "review_report.json", "file_review.json", "analysis.json",
-                "scripts_review.json"  # AI sometimes creates custom names
-            ]
-            for pattern in cleanup_patterns:
+            for pattern in JSON_CLEANUP_PATTERNS:
                 for search_dir in [self.project_root, Path.cwd()]:
                     cleanup_file = search_dir / pattern
                     if cleanup_file.exists():
@@ -220,14 +158,7 @@ class FileReviewer:
             # Look for JSON files created by StreetRace's write_json tool
             try:
                 # Check for common JSON file names that StreetRace creates
-                possible_json_files = [
-                    "review_output.json",
-                    "code-review-feedback.json", 
-                    "review_report.json",
-                    "file_review.json",
-                    "analysis.json",
-                    "scripts_review.json"  # AI sometimes creates custom names
-                ]
+                possible_json_files = list(JSON_CLEANUP_PATTERNS)
                 
                 # Also search for any *.json files in case AI creates custom names
                 for search_dir in [self.project_root, Path.cwd()]:
