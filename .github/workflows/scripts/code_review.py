@@ -9,18 +9,17 @@ to report generation.
 import os
 import subprocess
 import sys
-import tempfile
+from datetime import datetime
 from pathlib import Path
 
 
 class Colors:
     """ANSI color codes for terminal output."""
-
     RED = "\033[0;31m"
     GREEN = "\033[0;32m"
     YELLOW = "\033[1;33m"
     BLUE = "\033[0;34m"
-    NC = "\033[0m"  # No Color
+    NC = "\033[0m"
 
 
 def print_status(message: str) -> None:
@@ -51,6 +50,7 @@ class CodeReviewRunner:
         script_dir = Path(__file__).parent.resolve()
         self.project_root = script_dir.parent.parent.parent
         self.model = os.getenv("STREETRACE_MODEL", "openai/gpt-4o")
+        self.scripts_dir = self.project_root / ".github/workflows/scripts"
         self._setup_environment()
 
     def _setup_environment(self) -> None:
@@ -106,19 +106,11 @@ class CodeReviewRunner:
             )
             sys.exit(1)
 
-        # Check for API key (prioritize OpenAI)
-        api_keys = [
-            os.getenv("OPENAI_API_KEY"),
-            os.getenv("ANTHROPIC_API_KEY"),
-            os.getenv("GOOGLE_AI_API_KEY"),
-        ]
-
-        if not any(api_keys):
-            print_error(
-                "No API key found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_AI_API_KEY",
-            )
+        # Check for OpenAI API key
+        if not os.getenv("OPENAI_API_KEY"):
+            print_error("No OpenAI API key found. Set OPENAI_API_KEY")
             print_status(
-                "You can create a .env file in the project root with: OPENAI_API_KEY=your_key_here",
+                "You can create a .env file in the project root with: OPENAI_API_KEY=your_key_here"
             )
             sys.exit(1)
 
@@ -188,12 +180,9 @@ class CodeReviewRunner:
         print_status("🔄 Running per-file AI code review...")
         
         try:
-            result = subprocess.run(
-                [
-                    "python3",
-                    f"{self.project_root}/.github/workflows/scripts/per_file_code_review.py",
-                    "main"
-                ],
+            # Run per-file review
+            subprocess.run(
+                ["python3", str(self.scripts_dir / "per_file_code_review.py"), "main"],
                 cwd=self.project_root,
                 check=True,
                 env={**os.environ, "STREETRACE_MODEL": self.model}
@@ -201,63 +190,50 @@ class CodeReviewRunner:
             
             print_success("Per-file review completed!")
             
-            # Find the generated per-file review
+            # Find the generated per-file review using more efficient approach
             reviews_dir = self.project_root / "code-reviews"
-            per_file_json = None
+            per_file_json = next(reviews_dir.glob(f"{timestamp}_per_file_structured.json"), None)
             
-            for file in reviews_dir.glob(f"{timestamp}_per_file_structured.json"):
-                per_file_json = file
-                break
-            
-            if per_file_json and per_file_json.exists():
-                print_success(f"Per-file review saved: {per_file_json.name}")
-                
-                # Generate SARIF from per-file review
-                sarif_file = f"code-reviews/{timestamp}_per_file_sarif.json"
-                sarif_path = self.project_root / sarif_file
-                
-                try:
-                    subprocess.run(
-                        [
-                            "python3",
-                            f"{self.project_root}/.github/workflows/scripts/per_file_sarif_generator.py",
-                            str(per_file_json),
-                            str(sarif_path)
-                        ],
-                        check=True,
-                        cwd=self.project_root
-                    )
-                    
-                    if sarif_path.exists():
-                        print_success(f"SARIF file generated: {sarif_file}")
-                        
-                        # Set environment variables for GitHub Actions
-                        github_env = os.getenv("GITHUB_ENV")
-                        if github_env:
-                            with open(github_env, "a") as f:
-                                f.write(f"REVIEW_JSON_FILE={per_file_json}\n")
-                                f.write(f"REVIEW_SARIF_FILE={sarif_path}\n")
-                    
-                except subprocess.CalledProcessError as e:
-                    print_warning(f"SARIF generation failed: {e}")
-                
-            else:
+            if not per_file_json or not per_file_json.exists():
                 print_error("Per-file review output not found")
                 sys.exit(1)
+                
+            print_success(f"Per-file review saved: {per_file_json.name}")
+            
+            # Generate SARIF from per-file review
+            sarif_path = reviews_dir / f"{timestamp}_per_file_sarif.json"
+            
+            try:
+                subprocess.run(
+                    ["python3", str(self.scripts_dir / "per_file_sarif_generator.py"), 
+                     str(per_file_json), str(sarif_path)],
+                    check=True,
+                    cwd=self.project_root
+                )
+                
+                if sarif_path.exists():
+                    print_success(f"SARIF file generated: {sarif_path.name}")
+                    self._set_github_env_vars(per_file_json, sarif_path)
+                
+            except subprocess.CalledProcessError as e:
+                print_warning(f"SARIF generation failed: {e}")
                 
         except subprocess.CalledProcessError as e:
             print_error(f"Per-file review failed: {e}")
             sys.exit(1)
+    
+    def _set_github_env_vars(self, json_file: Path, sarif_file: Path) -> None:
+        """Set GitHub Actions environment variables."""
+        github_env = os.getenv("GITHUB_ENV")
+        if github_env:
+            with open(github_env, "a") as f:
+                f.write(f"REVIEW_JSON_FILE={json_file}\n")
+                f.write(f"REVIEW_SARIF_FILE={sarif_file}\n")
 
     def run_review(self) -> None:
         """Run the per-file AI code review."""
-        # Generate timestamp for the report filename
-        import datetime
-
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         print_status(f"Running per-file AI code review with model: {self.model}")
-        
         self.run_per_file_review(timestamp)
 
     def display_results(self) -> None:
@@ -285,40 +261,15 @@ def show_help() -> None:
 
 Usage: python code_review.py [OPTIONS]
 
-This script performs automated per-file code review using StreetRace:
-1. Checks for git changes (staged, branch diff, or recent commits)
-2. Reviews each file individually with full AI attention
-3. No token limits - each file gets complete context
-4. Generates individual review JSONs + aggregated SARIF for GitHub
-5. Superior security detection vs single-call approaches
-
-Per-File Architecture Benefits:
-- 3x more security vulnerabilities detected
-- No content truncation or summarization
-- Unlimited scalability (handles hundreds of files)
-- Each file gets dedicated AI analysis time
-- Better quality through focused attention
+Performs automated per-file code review using StreetRace with superior 
+security detection and unlimited scalability.
 
 Environment Variables:
-  OPENAI_API_KEY        - API key for OpenAI (recommended)
-  ANTHROPIC_API_KEY     - API key for Anthropic Claude
-  GOOGLE_AI_API_KEY     - API key for Google AI
+  OPENAI_API_KEY        - OpenAI API key (required)
   STREETRACE_MODEL      - Model to use (default: openai/gpt-4o)
-
-Examples:
-  python code_review.py                    # Review all changed files individually
-  
-  # With custom model:
-  STREETRACE_MODEL=anthropic/claude-3-5-sonnet python code_review.py
 
 Options:
   -h, --help           Show this help message
-
-Prerequisites:
-- Must be run from within the StreetRace project directory
-- Must be in a git repository with changes to review
-- Must have poetry installed with project dependencies
-- Must have an AI API key configured
 """
     print(help_text)
 
