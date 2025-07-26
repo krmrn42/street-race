@@ -12,17 +12,24 @@ from pathlib import Path
 from typing import Dict, List, Any
 from datetime import datetime
 
+from utils import print_status, print_success, print_error
+
+
+# Constants
+TITLE_HASH_LENGTH = 8
+FINGERPRINT_HASH_LENGTH = 16
+SARIF_SEVERITY_MAP = {
+    'error': 'error',
+    'warning': 'warning', 
+    'notice': 'note',  # SARIF uses 'note' instead of 'notice'
+    'info': 'note',
+    'note': 'note'
+}
+
 
 def map_severity_to_sarif_level(severity: str) -> str:
     """Map our severity levels to SARIF-compliant levels."""
-    mapping = {
-        'error': 'error',
-        'warning': 'warning', 
-        'notice': 'note',  # SARIF uses 'note' instead of 'notice'
-        'info': 'note',
-        'note': 'note'
-    }
-    return mapping.get(severity, 'note')  # Default to 'note' for unknown severities
+    return SARIF_SEVERITY_MAP.get(severity, 'note')  # Default to 'note' for unknown severities
 
 
 def generate_sarif_from_per_file_review(review_data: Dict) -> Dict:
@@ -50,8 +57,7 @@ def generate_sarif_from_per_file_review(review_data: Dict) -> Dict:
         line = issue.get('line', 1)
         
         # Create unique rule ID based on category and title to avoid duplicate rule names
-        import hashlib
-        title_hash = hashlib.md5(title.encode()).hexdigest()[:8]
+        title_hash = hashlib.md5(title.encode()).hexdigest()[:TITLE_HASH_LENGTH]
         rule_id = f"ai-code-review/{category}-{title_hash}"
         
         # Add rule if not already present
@@ -65,7 +71,7 @@ def generate_sarif_from_per_file_review(review_data: Dict) -> Dict:
                 "fullDescription": {
                     "text": message
                 },
-                "helpUri": "https://github.com/your-org/street-race/blob/main/docs/CODE_REVIEW_RULES.md",
+                "helpUri": "https://github.com/krmrn42/street-race/blob/main/README.md",
                 "properties": {
                     "category": category,
                     "severity": severity
@@ -106,7 +112,7 @@ def generate_sarif_from_per_file_review(review_data: Dict) -> Dict:
                 "driver": {
                     "name": "StreetRace AI Code Review (Per-File)",
                     "version": "2.0.0",
-                    "informationUri": "https://github.com/your-org/street-race",
+                    "informationUri": "https://github.com/krmrn42/street-race",
                     "rules": list(rules.values())
                 }
             },
@@ -127,20 +133,20 @@ def generate_sarif_from_per_file_review(review_data: Dict) -> Dict:
 def _generate_fingerprint(file_path: str, line: int, message: str) -> str:
     """Generate a fingerprint for issue deduplication."""
     content = f"{file_path}:{line}:{message}"
-    return hashlib.md5(content.encode()).hexdigest()[:16]
+    return hashlib.md5(content.encode()).hexdigest()[:FINGERPRINT_HASH_LENGTH]
 
 
 def main():
     """Main entry point for SARIF generation."""
     if len(sys.argv) != 3:
-        print("Usage: python per_file_sarif_generator.py <review_json_file> <output_sarif_file>")
+        print_error("Usage: python per_file_sarif_generator.py <review_json_file> <output_sarif_file>")
         sys.exit(1)
     
     review_json_file = Path(sys.argv[1])
     output_sarif_file = Path(sys.argv[2])
     
     if not review_json_file.exists():
-        print(f"Error: Review JSON file not found: {review_json_file}")
+        print_error(f"Review JSON file not found: {review_json_file}")
         sys.exit(1)
     
     try:
@@ -155,21 +161,21 @@ def main():
         with output_sarif_file.open('w') as f:
             json.dump(sarif_data, f, indent=2)
         
-        print(f"SARIF file generated successfully: {output_sarif_file}")
+        print_success(f"SARIF file generated successfully: {output_sarif_file}")
         
-        # Print summary
+        # Print summary using consistent formatting
         statistics = review_data.get('statistics', {})
-        print(f"Files reviewed: {statistics.get('files_changed', 0)}")
-        print(f"Total issues: {statistics.get('total_issues', 0)}")
-        print(f"Errors: {statistics.get('errors', 0)}")
-        print(f"Warnings: {statistics.get('warnings', 0)}")
-        print(f"Notices: {statistics.get('notices', 0)}")
+        print_status(f"Files reviewed: {statistics.get('files_changed', 0)}")
+        print_status(f"Total issues: {statistics.get('total_issues', 0)}")
+        print_status(f"Errors: {statistics.get('errors', 0)}")
+        print_status(f"Warnings: {statistics.get('warnings', 0)}")
+        print_status(f"Notices: {statistics.get('notices', 0)}")
         
     except json.JSONDecodeError as e:
-        print(f"Error: Invalid JSON in review file: {e}")
+        print_error(f"Invalid JSON in review file: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"Error generating SARIF: {e}")
+        print_error(f"Error generating SARIF: {e}")
         sys.exit(1)
 
 
