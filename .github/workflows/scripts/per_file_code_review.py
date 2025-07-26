@@ -199,10 +199,11 @@ class FileReviewer:
 
                 if review_data:
                     # Clean up the JSON file after reading
-                    try:
-                        json_file_found.unlink()
-                    except:
-                        pass
+                    if json_file_found:
+                        try:
+                            json_file_found.unlink()
+                        except:
+                            pass
 
                     # Ensure the file path is set correctly
                     review_data["file"] = file_path
